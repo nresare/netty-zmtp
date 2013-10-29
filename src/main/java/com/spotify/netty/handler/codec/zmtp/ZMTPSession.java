@@ -29,16 +29,18 @@ public class ZMTPSession {
   private final boolean useLocalIdentity;
   private final byte[] localIdent;
 
+
   private ZMTPConnectionType type;
   private Channel channel;
   private byte[] remoteIdent;
+  private int protocolVersion;
 
-  public ZMTPSession(final ZMTPConnectionType type) {
-    this(type, null);
+  public ZMTPSession(ZMTPConnectionType connectionType) {
+    this(connectionType, null);
   }
 
-  public ZMTPSession(final ZMTPConnectionType type, @Nullable final byte[] localIdent) {
-    this.type = type;
+  public ZMTPSession(final ZMTPConnectionType connectionType, @Nullable final byte[] localIdent) {
+    this.type = connectionType;
     this.useLocalIdentity = (localIdent != null);
     if (localIdent == null) {
       this.localIdent = ZMTPUtils.getBytesFromUUID(UUID.randomUUID());
@@ -129,4 +131,13 @@ public class ZMTPSession {
   public void setChannel(final Channel channel) {
     this.channel = channel;
   }
+
+  public int getProtocolVersion() {
+    return protocolVersion;
+  }
+
+  public void setProtocolVersion(int protocolVersion) {
+    this.protocolVersion = protocolVersion;
+  }
+
 }

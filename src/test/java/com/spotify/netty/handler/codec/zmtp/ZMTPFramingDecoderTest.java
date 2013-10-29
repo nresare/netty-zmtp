@@ -48,20 +48,7 @@ public class ZMTPFramingDecoderTest {
     byte[] clientIdentity = "client".getBytes();
     ZMTPFramingDecoder zfd = doHandshake(serverIdentity, clientIdentity);
     // for now, broadcast and neutral type seems to be buggy. Going with addressed
-    ChannelBuffer cb = ChannelBuffers.dynamicBuffer();
-    // header
-    byte[] header = "head".getBytes();
-    cb.writeByte(header.length + 1);
-    cb.writeByte(0x01);
-    cb.writeBytes(header);
-    // delimiter
-    cb.writeByte(0x01);
-    cb.writeByte(0x01);
-    // body
-    byte[] body = "body".getBytes();
-    cb.writeByte(body.length + 1);
-    cb.writeByte(0x00);
-    cb.writeBytes(body);
+    ChannelBuffer cb = ChannelBuffers.wrappedBuffer("\5\1head\1\1\5\0body".getBytes());
 
     ZMTPIncomingMessage zim = (ZMTPIncomingMessage)zfd.decode(ctx, channel, cb);
     ZMTPSession s = zim.getSession();
@@ -82,7 +69,7 @@ public class ZMTPFramingDecoderTest {
 
     // Someone connects
     zfd.channelConnected(ctx, channelStateEvent);
-    verify(channel, times(1)).write(makeFrame(serverIdentity));
+    verify(channel, times(1)).write(makeGreeting(serverIdentity, false));
     verify(ctx, never()).sendUpstream(channelStateEvent);
 
     Assert.assertNull(zfd.decode(ctx, channel, ChannelBuffers.dynamicBuffer(0)));
@@ -104,7 +91,7 @@ public class ZMTPFramingDecoderTest {
 
     // Someone connects
     zfd.channelConnected(ctx, channelStateEvent);
-    verify(channel, times(1)).write(makeFrame(serverIdentity));
+    verify(channel, times(1)).write(makeGreeting(serverIdentity, false));
     verify(ctx, never()).sendUpstream(channelStateEvent);
 
     ChannelBuffer malformed = ChannelBuffers.dynamicBuffer();
@@ -130,15 +117,12 @@ public class ZMTPFramingDecoderTest {
 
     // Someone connects
     zfd.channelConnected(ctx, channelStateEvent);
-    verify(channel, times(1)).write(makeFrame(serverIdentity));
+    verify(channel, times(1)).write(makeGreeting(serverIdentity, false));
     verify(ctx, never()).sendUpstream(channelStateEvent);
 
-    ChannelBuffer funky = ChannelBuffers.dynamicBuffer();
-    funky.writeBytes(new byte[]{(byte) 0xff, (byte)0, (byte)0, (byte)0, (byte)0,
-        (byte)0, (byte)0, (byte)0, (byte)(clientIdentity.length + 1), (byte) 0});
+    ChannelBuffer funky = buildBuffer(0xff,0,0,0,0,0,0,0,clientIdentity.length + 1, 0);
     funky.writeBytes(clientIdentity);
-
-    Assert.assertNull(zfd.decode(ctx, channel, funky));
+    sendBytes(zfd, funky);
     Assert.assertArrayEquals(clientIdentity, s.getRemoteIdentity());
   }
 
@@ -160,6 +144,39 @@ public class ZMTPFramingDecoderTest {
     }
   }
 
+  /**
+   * This test attempts to negotiate a ZMTP/2.0 connection with a ZMTPFramingDecoder and
+   * verifies that it behaves like described in the Backwards interoperability section of
+   * http://rfc.zeromq.org/spec:15
+   */
+  @Test
+  public void testZMTP2Connect() throws Exception {
+    byte[] server_identity = "s_sixth".getBytes();
+    ZMTPSession s = new ZMTPSession(ZMTPConnectionType.Addressed, server_identity);
+    ZMTPFramingDecoder zfd = new ZMTPFramingDecoder(s, ZMTPConnectionMode.ZMTP_20_INTEROP);
+    zfd.channelConnected(ctx, channelStateEvent);
+
+
+    sendBytes(zfd, buildBuffer(0xff, 0, 0, 0, 0, 0, 0, 0, 4, 0x7f));
+    verify(channel, times(1)).write(buildBuffer(0xff, 0, 0, 0, 0, 0, 0, 0, 8, 0x7f));
+
+  }
+
+  private void sendBytes(ZMTPFramingDecoder zfd, ChannelBuffer buffer) throws Exception {
+    MessageEvent me = new UpstreamMessageEvent(channel, buffer, null);
+    zfd.messageReceived(ctx, me);
+  }
+
+  private ChannelBuffer buildBuffer(int ...values) {
+    byte[] bs = new byte[values.length];
+    for (int i = 0; i < values.length; i++) {
+      bs[i] = (byte)values[i];
+    }
+    ChannelBuffer cb =  ChannelBuffers.dynamicBuffer(bs.length);
+    cb.writeBytes(bs);
+    return cb;
+  }
+
   private ZMTPFramingDecoder doHandshake(byte[] serverIdent, byte[] clientIdent) throws Exception
   {
     ZMTPSession s = new ZMTPSession(ZMTPConnectionType.Addressed, serverIdent);
@@ -168,24 +185,62 @@ public class ZMTPFramingDecoderTest {
     // Someone connects
     zfd.channelConnected(ctx, channelStateEvent);
 
-    verify(channel, times(1)).write(makeFrame(serverIdent));
+    verify(channel, times(1)).write(makeGreeting(serverIdent, false));
 
     verify(ctx, never()).sendUpstream(channelStateEvent);
 
-    // send it
-    Assert.assertNull(zfd.decode(ctx, channel, makeFrame(clientIdent)));
+    // send greeting
+    Assert.assertNull(zfd.decode(ctx, channel, makeGreeting(clientIdent, false)));
 
     verify(ctx, times(1)).sendUpstream(channelStateEvent);
     return zfd;
   }
 
-  private ChannelBuffer makeFrame(byte[] identity) {
+  @Test
+  public void testDetectProtocolVersion() {
+    try {
+      ZMTPFramingDecoder.detectProtocolVersion(ChannelBuffers.wrappedBuffer(new byte[0]));
+      Assert.fail("Should have thown IndexOutOfBoundsException");
+    } catch (IndexOutOfBoundsException e) {
+      // ignore
+    }
+    try {
+      ZMTPFramingDecoder.detectProtocolVersion(buildBuffer(0xff,0,0,0));
+      Assert.fail("Should have thown IndexOutOfBoundsException");
+    } catch (IndexOutOfBoundsException e) {
+      // ignore
+    }
+
+    Assert.assertEquals(1, ZMTPFramingDecoder.detectProtocolVersion(buildBuffer(0x07)));
+    Assert.assertEquals(1, ZMTPFramingDecoder.detectProtocolVersion(
+        buildBuffer(0xff,0,0,0,0,0,0,0,1,0)));
+
+    Assert.assertEquals(2, ZMTPFramingDecoder.detectProtocolVersion(
+        buildBuffer(0xff,0,0,0,0,0,0,0,1,1)));
+
+  }
+
+  /**
+   * Create a ChannelBuffer containing the octets sent as greeting. If interop is
+   * true, the octets should instead be formatted as the special interoperability
+   * signature as described in the Backwards Interoperability section of
+   * http://rfc.zeromq.org/spec:15
+   *
+   * Note that in the interop message does not contain the identity, which needs
+   * to be sent separately to for the greeting to be a valid ZMTP/1.0 greeting.
+   *
+   * @param identity the octets used as identity
+   * @param interop true if an interoperability signature is to be created
+   * @return a ChannelBuffer containing the desired octets.
+   */
+  private static ChannelBuffer makeGreeting(byte[] identity, boolean interop) {
     if (identity == null) {
       identity = new byte[0];
     }
     ChannelBuffer cb = ChannelBuffers.dynamicBuffer(identity.length + 2);
+
     long l = identity.length + 1;
-    if (l < 253) {
+    if (l < 253 || interop) {
       cb.writeByte((byte)l);
     } else {
       cb.writeByte(0xff);
@@ -195,9 +250,12 @@ public class ZMTPFramingDecoderTest {
         cb.writeLong(ChannelBuffers.swapLong(l));
       }
     }
-
-    cb.writeByte(0x00);
-    cb.writeBytes(identity);
+    if (interop) {
+      cb.writeByte(0x7f);
+    } else {
+      cb.writeByte(0x00);
+      cb.writeBytes(identity);
+    }
     return cb;
   }
 

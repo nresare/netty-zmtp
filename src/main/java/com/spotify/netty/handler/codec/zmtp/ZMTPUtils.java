@@ -59,11 +59,15 @@ public class ZMTPUtils {
     return size;
   }
 
+  static public void encodeLength(final long size, final ChannelBuffer out) {
+    encodeLength(size, out, false);
+  }
+
   /**
    * Helper to encode a zmtp length field
    */
-  static public void encodeLength(final long size, final ChannelBuffer out) {
-    if (size < 255) {
+  static public void encodeLength(final long size, final ChannelBuffer out, boolean forceLong) {
+    if (size < 255 && !forceLong) {
       // Encoded as a single byte
       out.writeByte((byte) size);
     } else {
