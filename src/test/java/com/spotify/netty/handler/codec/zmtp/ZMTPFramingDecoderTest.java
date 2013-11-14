@@ -65,7 +65,7 @@ public class ZMTPFramingDecoderTest {
     byte[] serverIdentity = "third_thing".getBytes();
 
     ZMTPSession s = new ZMTPSession(ZMTPConnectionType.Addressed, serverIdentity);
-    ZMTPFramingDecoder zfd = new ZMTPFramingDecoder(s);
+    ZMTPFramingDecoder zfd = new ZMTPFramingDecoder(s, null);
 
     // Someone connects
     zfd.channelConnected(ctx, channelStateEvent);
@@ -87,7 +87,7 @@ public class ZMTPFramingDecoderTest {
     byte[] serverIdentity = "third_thing".getBytes();
 
     ZMTPSession s = new ZMTPSession(ZMTPConnectionType.Addressed, serverIdentity);
-    ZMTPFramingDecoder zfd = new ZMTPFramingDecoder(s);
+    ZMTPFramingDecoder zfd = new ZMTPFramingDecoder(s, null);
 
     // Someone connects
     zfd.channelConnected(ctx, channelStateEvent);
@@ -113,7 +113,7 @@ public class ZMTPFramingDecoderTest {
     byte[] clientIdentity = "fifth".getBytes();
 
     ZMTPSession s = new ZMTPSession(ZMTPConnectionType.Addressed, serverIdentity);
-    ZMTPFramingDecoder zfd = new ZMTPFramingDecoder(s);
+    ZMTPFramingDecoder zfd = new ZMTPFramingDecoder(s, null);
 
     // Someone connects
     zfd.channelConnected(ctx, channelStateEvent);
@@ -153,7 +153,7 @@ public class ZMTPFramingDecoderTest {
   public void testZMTP2Connect() throws Exception {
     byte[] server_identity = "s_sixth".getBytes();
     ZMTPSession s = new ZMTPSession(ZMTPConnectionType.Addressed, server_identity);
-    ZMTPFramingDecoder zfd = new ZMTPFramingDecoder(s, ZMTPConnectionMode.ZMTP_20_INTEROP);
+    ZMTPFramingDecoder zfd = new ZMTPFramingDecoder(s, ZMTPMode.ZMTP_20_INTEROP, ZMTPSocketType.PUB);
     zfd.channelConnected(ctx, channelStateEvent);
 
 
@@ -180,7 +180,7 @@ public class ZMTPFramingDecoderTest {
   private ZMTPFramingDecoder doHandshake(byte[] serverIdent, byte[] clientIdent) throws Exception
   {
     ZMTPSession s = new ZMTPSession(ZMTPConnectionType.Addressed, serverIdent);
-    ZMTPFramingDecoder zfd = new ZMTPFramingDecoder(s);
+    ZMTPFramingDecoder zfd = new ZMTPFramingDecoder(s, null);
 
     // Someone connects
     zfd.channelConnected(ctx, channelStateEvent);
@@ -196,29 +196,6 @@ public class ZMTPFramingDecoderTest {
     return zfd;
   }
 
-  @Test
-  public void testDetectProtocolVersion() {
-    try {
-      ZMTPFramingDecoder.detectProtocolVersion(ChannelBuffers.wrappedBuffer(new byte[0]));
-      Assert.fail("Should have thown IndexOutOfBoundsException");
-    } catch (IndexOutOfBoundsException e) {
-      // ignore
-    }
-    try {
-      ZMTPFramingDecoder.detectProtocolVersion(buildBuffer(0xff,0,0,0));
-      Assert.fail("Should have thown IndexOutOfBoundsException");
-    } catch (IndexOutOfBoundsException e) {
-      // ignore
-    }
-
-    Assert.assertEquals(1, ZMTPFramingDecoder.detectProtocolVersion(buildBuffer(0x07)));
-    Assert.assertEquals(1, ZMTPFramingDecoder.detectProtocolVersion(
-        buildBuffer(0xff,0,0,0,0,0,0,0,1,0)));
-
-    Assert.assertEquals(2, ZMTPFramingDecoder.detectProtocolVersion(
-        buildBuffer(0xff,0,0,0,0,0,0,0,1,1)));
-
-  }
 
   /**
    * Create a ChannelBuffer containing the octets sent as greeting. If interop is

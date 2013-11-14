@@ -19,30 +19,30 @@ public class HandshakeTest {
 
   @Test
   public void testIsDone() {
-    Handshake h = new Handshake(ZMTPConnectionMode.ZMTP_10, session, ZMTPSocketType.PUB);
+    Handshake h = new Handshake(ZMTPMode.ZMTP_10, session, ZMTPSocketType.PUB);
     Assert.assertFalse(h.isDone());
   }
 
   @Test
   public void testOnConnect() {
-    Handshake h = new Handshake(ZMTPConnectionMode.ZMTP_10, session, ZMTPSocketType.PUB);
+    Handshake h = new Handshake(ZMTPMode.ZMTP_10, session, ZMTPSocketType.PUB);
     cmp(h.onConnect(), 0x04, 0x00, 0x66, 0x6f, 0x6f);
 
     h = new Handshake(
-        ZMTPConnectionMode.ZMTP_10, new ZMTPSession(ZMTPConnectionType.Addressed),
+        ZMTPMode.ZMTP_10, new ZMTPSession(ZMTPConnectionType.Addressed),
         ZMTPSocketType.PUB);
     cmp(h.onConnect(), 0x01, 0x00);
 
-    h = new Handshake(ZMTPConnectionMode.ZMTP_20_INTEROP, session, ZMTPSocketType.SUB);
+    h = new Handshake(ZMTPMode.ZMTP_20_INTEROP, session, ZMTPSocketType.SUB);
     cmp(h.onConnect(), 0xff, 0, 0, 0, 0, 0, 0, 0, 4, 0x7f);
 
-    h = new Handshake(ZMTPConnectionMode.ZMTP_20, session, ZMTPSocketType.REQ);
+    h = new Handshake(ZMTPMode.ZMTP_20, session, ZMTPSocketType.REQ);
     cmp(h.onConnect(), 0xff, 0, 0, 0, 0, 0, 0, 0, 0, 0x7f, 0x01, 0x03, 0x00, 3, 0x66, 0x6f, 0x6f);
   }
 
   @Test
   public void test1to1Handshake() {
-    Handshake h = new Handshake(ZMTPConnectionMode.ZMTP_10, session, ZMTPSocketType.PUB);
+    Handshake h = new Handshake(ZMTPMode.ZMTP_10, session, ZMTPSocketType.PUB);
     cmp(h.onConnect(), 0x04, 0x00, 0x66, 0x6f, 0x6f);
     Assert.assertNull(h.inputOutput(buf(0x04, 0x00, 0x62, 0x61, 0x72)));
     Assert.assertArrayEquals("bar".getBytes(), session.getRemoteIdentity());
@@ -51,7 +51,7 @@ public class HandshakeTest {
 
   @Test
   public void test2InteropTo1Handshake() {
-    Handshake h = new Handshake(ZMTPConnectionMode.ZMTP_20_INTEROP, session, ZMTPSocketType.PUB);
+    Handshake h = new Handshake(ZMTPMode.ZMTP_20_INTEROP, session, ZMTPSocketType.PUB);
     cmp(h.onConnect(), 0xff, 0, 0, 0, 0, 0, 0, 0, 0x04, 0x7f);
     cmp(h.inputOutput(buf(0x04, 0x00, 0x62, 0x61, 0x72)), 0x66, 0x6f, 0x6f);
     Assert.assertEquals(1, session.getProtocolVersion());
@@ -61,7 +61,7 @@ public class HandshakeTest {
 
   @Test
   public void test2InteropTo2InteropHandshake() {
-    Handshake h = new Handshake(ZMTPConnectionMode.ZMTP_20_INTEROP, session, ZMTPSocketType.PUB);
+    Handshake h = new Handshake(ZMTPMode.ZMTP_20_INTEROP, session, ZMTPSocketType.PUB);
     cmp(h.onConnect(), 0xff, 0, 0, 0, 0, 0, 0, 0, 0x04, 0x7f);
     cmp(h.inputOutput(buf(0xff, 0, 0, 0, 0, 0, 0, 0, 0x04, 0x7f)),
         0x01, 0x02, 0x00, 0x03, 0x66, 0x6f, 0x6f);
@@ -73,7 +73,7 @@ public class HandshakeTest {
 
   @Test
   public void test2InteropTo2Handshake() {
-    Handshake h = new Handshake(ZMTPConnectionMode.ZMTP_20_INTEROP, session, ZMTPSocketType.PUB);
+    Handshake h = new Handshake(ZMTPMode.ZMTP_20_INTEROP, session, ZMTPSocketType.PUB);
     cmp(h.onConnect(), 0xff, 0, 0, 0, 0, 0, 0, 0, 0x04, 0x7f);
     cmp(h.inputOutput(buf(
         0xff, 0, 0, 0, 0, 0, 0, 0, 0, 0x7f, 0x01, 0x01, 0x00, 0x03, 0x62, 0x61, 0x72)),
@@ -85,14 +85,46 @@ public class HandshakeTest {
 
   @Test
   public void test2To2InteropHandshake() {
-    Handshake h = new Handshake(ZMTPConnectionMode.ZMTP_20, session, ZMTPSocketType.PUB);
+    Handshake h = new Handshake(ZMTPMode.ZMTP_20, session, ZMTPSocketType.PUB);
     cmp(h.onConnect(), 0xff, 0, 0, 0, 0, 0, 0, 0, 0, 0x7f, 0x1, 0x2, 0, 0x3, 0x66, 0x6f, 0x6f);
-    Assert.assertNull(h.inputOutput(buf(0xff, 0, 0, 0, 0, 0, 0, 0, 0x4, 0x7f)));
-    Assert.assertNull(h.inputOutput(buf(0x1, 0x1, 0, 0x03, 0x62, 0x61, 0x72)));
+
+    try {
+      h.inputOutput(buf(0xff, 0, 0, 0, 0, 0, 0, 0, 0x4, 0x7f));
+      Assert.fail("not enough data in greeting (because compat mode) shuld have thrown exception");
+    } catch (IndexOutOfBoundsException e) {
+      // expected
+    }
+    Assert.assertNull(h.inputOutput(buf(
+        0xff, 0, 0, 0, 0, 0, 0, 0, 0x4, 0x7f, 0x1, 0x1, 0, 0x03, 0x62, 0x61, 0x72)));
     Assert.assertEquals(2, session.getProtocolVersion());
     Assert.assertArrayEquals("bar".getBytes(), session.getRemoteIdentity());
     Assert.assertTrue(h.isDone());
   }
+
+  @Test
+  public void test2To2Handshake() {
+    Handshake h = new Handshake(ZMTPMode.ZMTP_20, session, ZMTPSocketType.PUB);
+    cmp(h.onConnect(), 0xff, 0, 0, 0, 0, 0, 0, 0, 0, 0x7f, 0x1, 0x2, 0, 0x3, 0x66, 0x6f, 0x6f);
+    Assert.assertNull(h.inputOutput(buf(
+        0xff, 0, 0, 0, 0, 0, 0, 0, 0, 0x7f, 0x1, 0x1, 0, 0x03, 0x62, 0x61, 0x72)));
+    Assert.assertEquals(2, session.getProtocolVersion());
+    Assert.assertArrayEquals("bar".getBytes(), session.getRemoteIdentity());
+    Assert.assertTrue(h.isDone());
+  }
+
+  @Test
+  public void test2To1Handshake() {
+    Handshake h = new Handshake(ZMTPMode.ZMTP_20, session, ZMTPSocketType.PUB);
+    cmp(h.onConnect(), 0xff, 0, 0, 0, 0, 0, 0, 0, 0, 0x7f, 0x1, 0x2, 0, 0x3, 0x66, 0x6f, 0x6f);
+    try {
+      Assert.assertNull(h.inputOutput(buf(0x04, 0, 0x62, 0x61, 0x72)));
+      Assert.fail("An ZMTP/1 greeting is invalid in plain ZMTP/2. Should have thrown exception");
+    } catch (ZMTPException e) {
+      // pass
+    }
+  }
+
+
 
   @Test
   public void testParseZMTP2Greeting() {
@@ -133,13 +165,22 @@ public class HandshakeTest {
       // ignore
     }
 
-    Assert.assertEquals(1, ZMTPFramingDecoder.detectProtocolVersion(buf(0x07)));
-    Assert.assertEquals(1, ZMTPFramingDecoder.detectProtocolVersion(
-        buf(0xff,0,0,0,0,0,0,0,1,0)));
+    Assert.assertEquals(1, Handshake.detectProtocolVersion(buf(0x07)));
+    Assert.assertEquals(1, Handshake.detectProtocolVersion(buf(0xff,0,0,0,0,0,0,0,1,0)));
 
-    Assert.assertEquals(2, ZMTPFramingDecoder.detectProtocolVersion(
-        buf(0xff, 0, 0, 0, 0, 0, 0, 0, 1, 1)));
+    Assert.assertEquals(2, Handshake.detectProtocolVersion(buf(0xff, 0, 0, 0, 0, 0, 0, 0, 1, 1)));
 
+  }
+
+  @Test
+  public void testParseZMTP2GreetingMalformed() {
+    try {
+      ChannelBuffer b = buf(0xff, 0, 0, 0, 0, 0, 0, 0, 0, 0x7f, 0x01, 0x02, 0xf0, 0x01, 0x61);
+      new Handshake(null, session, null).parseZMTP2Greeting(b, true);
+      Assert.fail("13th byte is not 0x00, should throw exception");
+    } catch (ZMTPException e) {
+      // pass
+    }
   }
 
 

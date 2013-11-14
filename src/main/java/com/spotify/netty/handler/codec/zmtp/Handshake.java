@@ -2,6 +2,7 @@ package com.spotify.netty.handler.codec.zmtp;
 
 import org.jboss.netty.buffer.ChannelBuffer;
 import org.jboss.netty.buffer.ChannelBuffers;
+import org.jboss.netty.channel.ChannelFuture;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -12,9 +13,10 @@ import java.util.Map;
  */
 class Handshake {
   private final ZMTPSession session;
-  private final ZMTPConnectionMode mode;
+  private final ZMTPMode mode;
   private HandshakeState state;
   private final ZMTPSocketType type;
+  private ChannelFuture future;
 
   enum HandshakeState {
     BEFORE_HANDSHAKE, VERSION_DETECTED, DONE
@@ -30,11 +32,20 @@ class Handshake {
    * @param session the session associated with this handshake.
    * @param type the type of this socket
    */
-  public Handshake(ZMTPConnectionMode mode, ZMTPSession session, ZMTPSocketType type) {
+  public Handshake(ZMTPMode mode, ZMTPSession session, ZMTPSocketType type) {
     this.state = HandshakeState.BEFORE_HANDSHAKE;
     this.mode = mode;
     this.session = session;
     this.type = type;
+  }
+
+  /**
+   * A future to call when this handshake process has been successfully performed.
+   *
+   * @param future the future to call.
+   */
+  public void setFuture(ChannelFuture future) {
+    this.future = future;
   }
 
   /**
@@ -52,14 +63,13 @@ class Handshake {
    * @return the ChannelBuffer to send.
    */
   public ChannelBuffer onConnect() {
-    if (mode == ZMTPConnectionMode.ZMTP_10) {
+    if (mode == ZMTPMode.ZMTP_10) {
       return makeZMTP1Greeting();
-    } else if (mode == ZMTPConnectionMode.ZMTP_20_INTEROP) {
+    } else if (mode == ZMTPMode.ZMTP_20_INTEROP) {
       return makeZMTP2CompatSignature();
-    } else if (mode == ZMTPConnectionMode.ZMTP_20) {
+    } else { // mode == ZMTPMode.ZMTP_20
       return makeZMTP2Greeting(true);
     }
-    throw new Error(String.format("Unknown mode %s", mode));
   }
 
   /**
@@ -75,14 +85,16 @@ class Handshake {
     if (state == HandshakeState.VERSION_DETECTED) {
       parseZMTP2Greeting(buffer, false);
       state = HandshakeState.DONE;
+      notifySuccess();
       return null;
     }
 
-    if (mode == ZMTPConnectionMode.ZMTP_10) {
+    if (mode == ZMTPMode.ZMTP_10) {
       session.setRemoteIdentity(readZMTP1RemoteIdentity(buffer));
       session.setProtocolVersion(1);
       state = HandshakeState.DONE;
-    } else if (mode == ZMTPConnectionMode.ZMTP_20_INTEROP) {
+      notifySuccess();
+    } else if (mode == ZMTPMode.ZMTP_20_INTEROP) {
       buffer.markReaderIndex();
       int version = detectProtocolVersion(buffer);
       session.setProtocolVersion(version);
@@ -90,6 +102,7 @@ class Handshake {
         buffer.resetReaderIndex();
         session.setRemoteIdentity(readZMTP1RemoteIdentity(buffer));
         state = HandshakeState.DONE;
+        notifySuccess();
         // when a ZMTP/1.0 peer is detected, just send the identity bytes. Together
         // with the compatibility signature it makes for a valid ZMTP/1.0 greeting.
         return ChannelBuffers.wrappedBuffer(session.getLocalIdentity());
@@ -97,13 +110,25 @@ class Handshake {
         if (buffer.readableBytes() > 0) {
           parseZMTP2Greeting(buffer, false);
           state = HandshakeState.DONE;
+          notifySuccess();
         } else {
           state = HandshakeState.VERSION_DETECTED;
         }
         return makeZMTP2Greeting(false);
       }
+    } else { // mode == ZMTP_20
+      session.setProtocolVersion(2);
+      parseZMTP2Greeting(buffer, true);
+      state = HandshakeState.DONE;
+      notifySuccess();
     }
     return null;
+  }
+
+  private void notifySuccess() {
+    if (future != null) {
+      future.setSuccess();
+    }
   }
 
   /**
@@ -146,7 +171,7 @@ class Handshake {
     buffer.skipBytes(2);
     int val = buffer.readByte();
     if (val != 0x00) {
-      String s = String.format("Malfromed greeting. Octet 13 expected to be 0x00, was: 0x02x", val);
+      String s = String.format("Malfromed greeting. Byte 13 expected to be 0x00, was: 0x%02x", val);
       throw new ZMTPException(s);
     }
     int len = buffer.readByte();

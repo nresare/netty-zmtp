@@ -83,7 +83,7 @@ public class ProtocolViolationTests {
 
         return Channels.pipeline(
             new ExecutionHandler(executor),
-            new ZMTPFramingDecoder(session),
+            new ZMTPFramingDecoder(session, null),
             new ZMTPFramingEncoder(session),
             new SimpleChannelUpstreamHandler() {
 

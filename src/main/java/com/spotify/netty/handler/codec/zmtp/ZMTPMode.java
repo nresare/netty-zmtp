@@ -4,7 +4,7 @@ package com.spotify.netty.handler.codec.zmtp;
  * This enum represents the different connection modes that the ZMTPFramingDecoder can be
  * configured to use.
  */
-public enum ZMTPConnectionMode {
+public enum ZMTPMode {
   /**
    * The connection will use the ZMTP/1.0 framing protocol only.
    */
