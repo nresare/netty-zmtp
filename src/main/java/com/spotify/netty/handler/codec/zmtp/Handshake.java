@@ -218,7 +218,7 @@ class Handshake {
     }
     out.writeByte(0x01);
     // socket-type
-    out.writeByte(typeToConst(type));
+    out.writeByte(type.ordinal());
     // identity
     // the final-short flag octet
     out.writeByte(0x00);
@@ -268,13 +268,4 @@ class Handshake {
     typeToId.put(ZMTPSocketType.PUSH, 8);
   }
 
-  static char typeToConst(ZMTPSocketType type) {
-    // yup, autoboxing is terrible
-    try {
-      int i = typeToId.get(type);
-      return (char)i;
-    } catch (NullPointerException e) {
-      throw new Error(String.format("Unknown ZMTPSocketType: %s", type));
-    }
-  }
 }

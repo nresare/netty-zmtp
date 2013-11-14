@@ -147,7 +147,7 @@ public class HandshakeTest {
 
   @Test
   public void testTypeToConst() {
-    Assert.assertEquals(8, Handshake.typeToConst(ZMTPSocketType.PUSH));
+    Assert.assertEquals(8, ZMTPSocketType.PUSH.ordinal());
   }
 
   @Test

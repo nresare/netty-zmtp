@@ -138,8 +138,6 @@ public class ProtocolViolationTests {
 
     final Channel channel = future.getChannel();
 
-    System.out.println("payloadSize=" + payloadSize);
-
     final StringBuilder payload = new StringBuilder();
     for (int i = 0; i < payloadSize; i++) {
       payload.append('0');

@@ -88,7 +88,9 @@ public class ZMTPFramingDecoder extends FrameDecoder {
     handshakeFuture.addListener(new ChannelFutureListener() {
       @Override
       public void operationComplete(final ChannelFuture future) throws Exception {
-        ctx.sendUpstream(e);
+        if (future.isSuccess()) {
+          ctx.sendUpstream(e);
+        }
       }
     });
 
