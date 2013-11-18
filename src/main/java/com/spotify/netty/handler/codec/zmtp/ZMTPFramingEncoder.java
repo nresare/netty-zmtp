@@ -28,6 +28,7 @@ import org.jboss.netty.handler.codec.oneone.OneToOneEncoder;
 public class ZMTPFramingEncoder extends OneToOneEncoder {
 
   private final ZMTPSession session;
+  private int version;
 
   public ZMTPFramingEncoder(final ZMTPSession session) {
     this.session = session;
@@ -45,10 +46,14 @@ public class ZMTPFramingEncoder extends OneToOneEncoder {
 
     final ZMTPMessage message = (ZMTPMessage) o;
 
-    final ChannelBuffer buffer = ChannelBuffers.buffer(
-        ZMTPUtils.messageSize(message, session.isEnveloped()));
+    if (version == 0) {
+      version = session.getProtocolVersion();
+    }
 
-    ZMTPUtils.writeMessage(message, buffer, session.isEnveloped());
+    final ChannelBuffer buffer = ChannelBuffers.buffer(ZMTPUtils.messageSize(
+        message, session.isEnveloped(), version));
+
+    ZMTPUtils.writeMessage(message, buffer, session.isEnveloped(), version);
 
     return buffer;
   }
