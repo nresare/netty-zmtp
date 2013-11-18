@@ -33,8 +33,8 @@ public class ZMTPFramingDecoder extends FrameDecoder implements Handshake.Handsh
   private Handshake handshake;
   private ChannelFuture handshakeFuture;
 
-  public ZMTPFramingDecoder(final ZMTPSession session, final ZMTPSocketType type) {
-    this(session, ZMTPMode.ZMTP_10, type);
+  public ZMTPFramingDecoder(final ZMTPSession session) {
+    this(session, ZMTPMode.ZMTP_10, null);
   }
 
   /**
@@ -113,6 +113,7 @@ public class ZMTPFramingDecoder extends FrameDecoder implements Handshake.Handsh
    */
   public void handshakeDone(int protocolVersion, byte[] remoteIdentity) {
     this.session.setRemoteIdentity(remoteIdentity);
+    this.session.setProtocolVersion(protocolVersion);
     this.parser = new ZMTPMessageParser(session.isEnveloped(), protocolVersion);
     handshakeFuture.setSuccess();
   }

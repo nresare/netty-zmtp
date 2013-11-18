@@ -78,7 +78,7 @@ public class ZMQIntegrationTest {
 
         return Channels.pipeline(
             new ExecutionHandler(executor),
-            new ZMTPFramingDecoder(session, null),
+            new ZMTPFramingDecoder(session),
             new ZMTPFramingEncoder(session),
             new SimpleChannelUpstreamHandler() {
 

@@ -64,7 +64,7 @@ public abstract class ZMTPTestConnector {
       public ChannelPipeline getPipeline() throws Exception {
         final ZMTPSession session = new ZMTPSession(ZMTPConnectionType.Addressed);
         return Channels.pipeline(
-            new ZMTPFramingDecoder(session, null),
+            new ZMTPFramingDecoder(session),
             new OneToOneDecoder() {
               @Override
               protected Object decode(final ChannelHandlerContext ctx, final Channel channel,

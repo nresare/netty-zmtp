@@ -65,7 +65,7 @@ public class ZMTPFramingDecoderTest {
     byte[] serverIdentity = "third_thing".getBytes();
 
     ZMTPSession s = new ZMTPSession(ZMTPConnectionType.Addressed, serverIdentity);
-    ZMTPFramingDecoder zfd = new ZMTPFramingDecoder(s, null);
+    ZMTPFramingDecoder zfd = new ZMTPFramingDecoder(s);
 
     // Someone connects
     zfd.channelConnected(ctx, channelStateEvent);
@@ -87,7 +87,7 @@ public class ZMTPFramingDecoderTest {
     byte[] serverIdentity = "third_thing".getBytes();
 
     ZMTPSession s = new ZMTPSession(ZMTPConnectionType.Addressed, serverIdentity);
-    ZMTPFramingDecoder zfd = new ZMTPFramingDecoder(s, null);
+    ZMTPFramingDecoder zfd = new ZMTPFramingDecoder(s);
 
     // Someone connects
     zfd.channelConnected(ctx, channelStateEvent);
@@ -113,7 +113,7 @@ public class ZMTPFramingDecoderTest {
     byte[] clientIdentity = "fifth".getBytes();
 
     ZMTPSession s = new ZMTPSession(ZMTPConnectionType.Addressed, serverIdentity);
-    ZMTPFramingDecoder zfd = new ZMTPFramingDecoder(s, null);
+    ZMTPFramingDecoder zfd = new ZMTPFramingDecoder(s);
 
     // Someone connects
     zfd.channelConnected(ctx, channelStateEvent);
@@ -180,7 +180,7 @@ public class ZMTPFramingDecoderTest {
   private ZMTPFramingDecoder doHandshake(byte[] serverIdent, byte[] clientIdent) throws Exception
   {
     ZMTPSession s = new ZMTPSession(ZMTPConnectionType.Addressed, serverIdent);
-    ZMTPFramingDecoder zfd = new ZMTPFramingDecoder(s, null);
+    ZMTPFramingDecoder zfd = new ZMTPFramingDecoder(s);
 
     // Someone connects
     zfd.channelConnected(ctx, channelStateEvent);
