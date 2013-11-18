@@ -46,8 +46,8 @@ public class Benchmark {
     for (long i = 0; i < 1000000; i++) {
       for (long j = 0; j < 1000; j++) {
         final ChannelBuffer buffer = ChannelBuffers.buffer(
-            ZMTPUtils.messageSize(message, true));
-        ZMTPUtils.writeMessage(message, buffer, true);
+            ZMTPUtils.messageSize(message, true, 1));
+        ZMTPUtils.writeMessage(message, buffer, true, 1);
         message = parser.parse(buffer);
 
         sum += buffer.readableBytes();
