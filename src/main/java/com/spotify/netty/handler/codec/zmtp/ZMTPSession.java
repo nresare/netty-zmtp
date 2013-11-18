@@ -133,33 +133,16 @@ public class ZMTPSession {
   }
 
   /**
-   * Returns the protocolVersion of this session, blocks until setProtocolVersion() is called.
-   * This to avoid a race where ZMTPFramingEncoder.encode() gets called before the handshake
-   * has completed successfully.
+   * Returns the protocolVersion of this session.
    *
    * @return 1 for ZMTP/1.0 or 2 for ZMTP/2.0.
    */
   public int getProtocolVersion() {
-    // http://en.wikipedia.org/wiki/Double-checked_locking
-    if (protocolVersion == 0) {
-      synchronized (this) {
-        do {
-          try {
-            wait();
-          } catch (InterruptedException e) {
-            // Let's ignore this
-          }
-        } while (protocolVersion == 0);
-      }
-    }
     return protocolVersion;
   }
 
   public void setProtocolVersion(int protocolVersion) {
-    synchronized (this) {
       this.protocolVersion = protocolVersion;
-      notifyAll();
-    }
   }
 
 }
