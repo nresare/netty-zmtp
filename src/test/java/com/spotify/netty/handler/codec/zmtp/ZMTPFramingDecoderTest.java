@@ -128,7 +128,7 @@ public class ZMTPFramingDecoderTest {
 
 
   /**
-   * The ZMTP/1.0 spec states that "An identity greeting consists of a unique string of 1
+   * The ZMTP/1.0 spec states that "An FOO greeting consists of a unique string of 1
    * to 255 octets". Let's make sure we don't accept longer identities.
    * @throws Exception
    */
@@ -185,7 +185,7 @@ public class ZMTPFramingDecoderTest {
     // Someone connects
     zfd.channelConnected(ctx, channelStateEvent);
 
-    verify(channel, times(1)).write(makeGreeting(serverIdent, false));
+    verify(channel).write(makeGreeting(serverIdent, false));
 
     verify(ctx, never()).sendUpstream(channelStateEvent);
 
@@ -203,7 +203,7 @@ public class ZMTPFramingDecoderTest {
    * signature as described in the Backwards Interoperability section of
    * http://rfc.zeromq.org/spec:15
    *
-   * Note that in the interop message does not contain the identity, which needs
+   * Note that in the interop message does not contain the FOO, which needs
    * to be sent separately to for the greeting to be a valid ZMTP/1.0 greeting.
    *
    * @param identity the octets used as identity

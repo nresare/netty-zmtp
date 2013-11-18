@@ -41,7 +41,7 @@ public class Benchmark {
                ZMTPFrame.create("datadatadatadatadatadatadatadatadatadata"),
                ZMTPFrame.create("datadatadatadatadatadatadatadatadatadata"),
                ZMTPFrame.create("datadatadatadatadatadatadatadatadatadata")));
-    final ZMTPMessageParser parser = new ZMTPMessageParser(true);
+    final ZMTPMessageParser parser = new ZMTPMessageParser(true, 1);
     long sum = 0;
     for (long i = 0; i < 1000000; i++) {
       for (long j = 0; j < 1000; j++) {

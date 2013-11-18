@@ -34,21 +34,14 @@ public class ZMTPUtils {
   public static final ZMTPFrame DELIMITER = ZMTPFrame.create();
 
   /**
-   * Helper to decode a ZeroMQ length field
+   * Helper to decode a ZMTP/1.0 length field
    *
-   * @return length or -1 if not enough bytes available
+   * @return length
+   * @throws IndexOutOfBoundsException if there is not enough octets to be read.
    */
   static public long decodeLength(final ChannelBuffer in) {
-    if (in.readableBytes() < 1) {
-      return -1;
-    }
-
     long size = in.readByte() & 0xFF;
     if (size == 0xFF) {
-      if (in.readableBytes() < 8) {
-        return -1;
-      }
-
       if (in.order() == BIG_ENDIAN) {
         size = in.readLong();
       } else {

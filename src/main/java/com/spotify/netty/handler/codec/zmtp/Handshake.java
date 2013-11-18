@@ -2,24 +2,24 @@ package com.spotify.netty.handler.codec.zmtp;
 
 import org.jboss.netty.buffer.ChannelBuffer;
 import org.jboss.netty.buffer.ChannelBuffers;
-import org.jboss.netty.channel.ChannelFuture;
-
-import java.util.HashMap;
-import java.util.Map;
 
 /**
  * Encapsulates the functionality required to properly do a ZMTP handshake. It holds state and
  * is expected to be used once per connection.
  */
 class Handshake {
-  private final ZMTPSession session;
   private final ZMTPMode mode;
-  private HandshakeState state;
+  private final byte[] localIdentity;
   private final ZMTPSocketType type;
-  private ChannelFuture future;
+  private boolean splitHandshake;
+  private HandshakeListener listener;
 
-  enum HandshakeState {
-    BEFORE_HANDSHAKE, VERSION_DETECTED, DONE
+  /**
+   * This interface is implemented by classes that wants to receive notifications about
+   * the completion of a ZMTP handshake
+   */
+  public static interface HandshakeListener {
+    void handshakeDone(int protocolVersion, byte[] remoteIdentity);
   }
 
   /**
@@ -29,32 +29,20 @@ class Handshake {
    * Handshake instance.
    *
    * @param mode the mode of the handshake to be preformed by this instance.
-   * @param session the session associated with this handshake.
    * @param type the type of this socket
    */
-  public Handshake(ZMTPMode mode, ZMTPSession session, ZMTPSocketType type) {
-    this.state = HandshakeState.BEFORE_HANDSHAKE;
+  public Handshake(ZMTPMode mode, ZMTPSocketType type, byte[] localIdentity) {
+    this.splitHandshake = false;
     this.mode = mode;
-    this.session = session;
     this.type = type;
+    this.localIdentity = localIdentity != null ? localIdentity : new byte[0];
+
   }
 
-  /**
-   * A future to call when this handshake process has been successfully performed.
-   *
-   * @param future the future to call.
-   */
-  public void setFuture(ChannelFuture future) {
-    this.future = future;
+  public void setListener(HandshakeListener listener) {
+    this.listener = listener;
   }
 
-  /**
-   * Returns true if the handshake associated with this instance has been executed or not.
-   * @return true if handshake has been done, else false
-   */
-  public boolean isDone() {
-    return this.state == HandshakeState.DONE;
-  }
 
   /**
    * Provides a ChannelBuffer to be sent to the remote peer directly after a socket connection
@@ -82,52 +70,42 @@ class Handshake {
    */
   public ChannelBuffer inputOutput(final ChannelBuffer buffer)
       throws IndexOutOfBoundsException {
-    if (state == HandshakeState.VERSION_DETECTED) {
-      parseZMTP2Greeting(buffer, false);
-      state = HandshakeState.DONE;
-      notifySuccess();
+
+    if (splitHandshake) {
+      done(2, parseZMTP2Greeting(buffer, false));
       return null;
     }
 
     if (mode == ZMTPMode.ZMTP_10) {
-      session.setRemoteIdentity(readZMTP1RemoteIdentity(buffer));
-      session.setProtocolVersion(1);
-      state = HandshakeState.DONE;
-      notifySuccess();
+
+      done(1, readZMTP1RemoteIdentity(buffer));
+
     } else if (mode == ZMTPMode.ZMTP_20_INTEROP) {
       buffer.markReaderIndex();
       int version = detectProtocolVersion(buffer);
-      session.setProtocolVersion(version);
       if (version == 1) {
         buffer.resetReaderIndex();
-        session.setRemoteIdentity(readZMTP1RemoteIdentity(buffer));
-        state = HandshakeState.DONE;
-        notifySuccess();
+        done(version, readZMTP1RemoteIdentity(buffer));
         // when a ZMTP/1.0 peer is detected, just send the identity bytes. Together
         // with the compatibility signature it makes for a valid ZMTP/1.0 greeting.
-        return ChannelBuffers.wrappedBuffer(session.getLocalIdentity());
+        return ChannelBuffers.wrappedBuffer(localIdentity);
       } else { // version == 2
         if (buffer.readableBytes() > 0) {
-          parseZMTP2Greeting(buffer, false);
-          state = HandshakeState.DONE;
-          notifySuccess();
+          done(2, parseZMTP2Greeting(buffer, false));
         } else {
-          state = HandshakeState.VERSION_DETECTED;
+          splitHandshake = true;
         }
         return makeZMTP2Greeting(false);
       }
     } else { // mode == ZMTP_20
-      session.setProtocolVersion(2);
-      parseZMTP2Greeting(buffer, true);
-      state = HandshakeState.DONE;
-      notifySuccess();
+      done(2, parseZMTP2Greeting(buffer, true));
     }
     return null;
   }
 
-  private void notifySuccess() {
-    if (future != null) {
-      future.setSuccess();
+  private void done(int version, byte[] remoteIdentity) {
+    if (listener != null) {
+      listener.handshakeDone(version, remoteIdentity);
     }
   }
 
@@ -135,7 +113,6 @@ class Handshake {
    * Parse and return the remote identity octets from a ZMTP/1.0 greeting.
    */
   static byte[] readZMTP1RemoteIdentity(final ChannelBuffer buffer) {
-    // TODO: noa: I don't think mark/reset() is needed. Verify.
     buffer.markReaderIndex();
 
     final long len = ZMTPUtils.decodeLength(buffer);
@@ -160,7 +137,7 @@ class Handshake {
     return identity;
   }
 
-  void parseZMTP2Greeting(ChannelBuffer buffer, boolean expectSignature) {
+  byte[] parseZMTP2Greeting(ChannelBuffer buffer, boolean expectSignature) {
     if (expectSignature) {
       if (buffer.readByte() != (byte)0xff) {
         throw new ZMTPException("Illegal ZMTP/2.0 greeting, first octet not 0xff");
@@ -177,7 +154,7 @@ class Handshake {
     int len = buffer.readByte();
     final byte[] identity = new byte[len];
     buffer.readBytes(identity);
-    session.setRemoteIdentity(identity);
+    return identity;
   }
 
   /**
@@ -222,7 +199,6 @@ class Handshake {
     // identity
     // the final-short flag octet
     out.writeByte(0x00);
-    byte[] localIdentity = session.useLocalIdentity() ? session.getLocalIdentity() : new byte[0];
     out.writeByte(localIdentity.length);
     out.writeBytes(localIdentity);
     return out;
@@ -235,7 +211,6 @@ class Handshake {
    * @return a ChannelBuffer with a greeting
    */
   private ChannelBuffer makeZMTP1Greeting() {
-    byte[] localIdentity = session.useLocalIdentity() ? session.getLocalIdentity() : new byte[0];
     ChannelBuffer out = ChannelBuffers.dynamicBuffer();
     ZMTPUtils.encodeLength(localIdentity.length + 1, out);
     out.writeByte(0x00);
@@ -248,24 +223,9 @@ class Handshake {
    * message as specified in the Backwards Compatibility section of http://rfc.zeromq.org/spec:15
    */
   private ChannelBuffer makeZMTP2CompatSignature() {
-    byte[] localIdentity = session.useLocalIdentity() ? session.getLocalIdentity() : new byte[0];
     ChannelBuffer out = ChannelBuffers.dynamicBuffer();
     ZMTPUtils.encodeLength(localIdentity.length + 1, out, true);
     out.writeByte(0x7f);
     return out;
   }
-
-  static private Map<ZMTPSocketType,Integer> typeToId = new HashMap<ZMTPSocketType,Integer>();
-  static {
-    typeToId.put(ZMTPSocketType.PAIR, 0);
-    typeToId.put(ZMTPSocketType.SUB, 1);
-    typeToId.put(ZMTPSocketType.PUB, 2);
-    typeToId.put(ZMTPSocketType.REQ, 3);
-    typeToId.put(ZMTPSocketType.REP, 4);
-    typeToId.put(ZMTPSocketType.DEALER, 5);
-    typeToId.put(ZMTPSocketType.ROUTER, 6);
-    typeToId.put(ZMTPSocketType.PULL, 7);
-    typeToId.put(ZMTPSocketType.PUSH, 8);
-  }
-
 }

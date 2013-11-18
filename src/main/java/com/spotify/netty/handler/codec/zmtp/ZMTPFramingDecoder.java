@@ -24,9 +24,9 @@ import org.jboss.netty.handler.codec.frame.FrameDecoder;
  *
  * Decodes ZMTP frames into a ZMTPMessage - will return a ZMTPMessage as a message event
  */
-public class ZMTPFramingDecoder extends FrameDecoder {
+public class ZMTPFramingDecoder extends FrameDecoder implements Handshake.HandshakeListener {
 
-  private final ZMTPMessageParser parser;
+  private ZMTPMessageParser parser;
   private final ZMTPSession session;
   private final ZMTPMode mode;
   private final ZMTPSocketType type;
@@ -43,7 +43,6 @@ public class ZMTPFramingDecoder extends FrameDecoder {
   public ZMTPFramingDecoder(final ZMTPSession session, ZMTPMode mode, ZMTPSocketType type) {
     this.mode = mode;
     this.session = session;
-    this.parser = new ZMTPMessageParser(session.isEnveloped());
     this.type = type;
   }
 
@@ -55,7 +54,7 @@ public class ZMTPFramingDecoder extends FrameDecoder {
       final ChannelHandlerContext ctx, final Channel channel, final ChannelBuffer buffer)
       throws Exception {
 
-    if (!handshake.isDone()) {
+    if (parser == null) {
       try {
         buffer.markReaderIndex();
         final ChannelBuffer toSend = handshake.inputOutput(buffer);
@@ -63,10 +62,12 @@ public class ZMTPFramingDecoder extends FrameDecoder {
           channel.write(toSend);
         }
       } catch (IndexOutOfBoundsException e) {
+        buffer.resetReaderIndex();
+      } catch (ZMTPException e) {
         if (handshakeFuture != null) {
           handshakeFuture.setFailure(e);
         }
-        buffer.resetReaderIndex();
+        throw e;
       }
       return null;
     }
@@ -94,11 +95,26 @@ public class ZMTPFramingDecoder extends FrameDecoder {
       }
     });
 
-    handshake = new Handshake(mode, session, type);
+    handshake = new Handshake(
+        mode, type, session.useLocalIdentity() ? session.getLocalIdentity(): null);
+    handshake.setListener(this);
     Channel channel = e.getChannel();
-    handshake.setFuture(handshakeFuture);
     channel.write(handshake.onConnect());
     this.session.setChannel(e.getChannel());
+  }
+
+  /**
+   * This method gets called by the Handshake once it has been completed, to signal
+   * which protocolVersion and remoteIdentity that got detected.
+   *
+   * @param protocolVersion an integer representing which protocol version this connection
+   *                        has. Valid values are 1 for ZMTP/1.0 and 2 for ZMTP/2.0
+   * @param remoteIdentity a byte array containing the remote identity.
+   */
+  public void handshakeDone(int protocolVersion, byte[] remoteIdentity) {
+    this.session.setRemoteIdentity(remoteIdentity);
+    this.parser = new ZMTPMessageParser(session.isEnveloped(), protocolVersion);
+    handshakeFuture.setSuccess();
   }
 
 }

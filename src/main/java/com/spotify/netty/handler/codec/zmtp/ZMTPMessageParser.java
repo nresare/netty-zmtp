@@ -22,6 +22,8 @@ import java.util.ArrayList;
 import java.util.List;
 
 import static com.spotify.netty.handler.codec.zmtp.ZMTPUtils.MORE_FLAG;
+import static java.nio.ByteOrder.BIG_ENDIAN;
+import static org.jboss.netty.buffer.ChannelBuffers.swapLong;
 
 /**
  * Decodes ZMTP messages from a channel buffer, reading and accumulating frame by frame, keeping
@@ -29,7 +31,9 @@ import static com.spotify.netty.handler.codec.zmtp.ZMTPUtils.MORE_FLAG;
  */
 public class ZMTPMessageParser {
 
+  private static final byte LONG_FLAG = 0x02;
   private final boolean enveloped;
+  private final int version;
 
   private List<ZMTPFrame> envelope = new ArrayList<ZMTPFrame>();
   private List<ZMTPFrame> content = new ArrayList<ZMTPFrame>();
@@ -37,8 +41,9 @@ public class ZMTPMessageParser {
   private List<ZMTPFrame> part;
   private boolean hasMore;
 
-  public ZMTPMessageParser(final boolean enveloped) {
+  public ZMTPMessageParser(final boolean enveloped, final int version) {
     this.enveloped = enveloped;
+    this.version = version;
     reset();
   }
 
@@ -93,26 +98,45 @@ public class ZMTPMessageParser {
    */
   public ZMTPFrame parseFrame(final ChannelBuffer buffer) {
     // Try to parse a ZMTP frame
+    try {
+      long len = version == 1 ? parseZMTP1FrameHeader(buffer) : parseZMTP2FrameHeader(buffer);
+      if (len == -1) {
+        throw new ZMTPException("Received frame with zero length");
+      }
+
+      if (len > Integer.MAX_VALUE) {
+        throw new ZMTPException("Received too large frame: " + len);
+      }
+
+      if ((int) len > buffer.readableBytes()) {
+        // Wait for more data to decode
+        return null;
+      }
+
+
+      return ZMTPFrame.read(buffer, (int) len);
+    } catch (IndexOutOfBoundsException e) {
+      return null;
+    }
+  }
+
+  private long parseZMTP2FrameHeader(ChannelBuffer buffer) {
+    int flags = buffer.readByte();
+    hasMore = (flags & MORE_FLAG) == MORE_FLAG;
+    if ((flags & LONG_FLAG) != LONG_FLAG) {
+      return buffer.readByte() & 0xff;
+    }
+    if (buffer.order() == BIG_ENDIAN) {
+      return buffer.readLong();
+    } else {
+      return swapLong(buffer.readLong());
+    }
+  }
+
+  private long parseZMTP1FrameHeader(final ChannelBuffer buffer) {
     long len = ZMTPUtils.decodeLength(buffer);
-    if (len == -1) {
-      return null;
-    } else if (len == 0) {
-      throw new ZMTPException("Received frame with zero length");
-    }
-
-    if (len > Integer.MAX_VALUE) {
-      throw new ZMTPException("Received too large frame: " + len);
-    }
-
-    if ((int) len > buffer.readableBytes()) {
-      // Wait for more data to decode
-      return null;
-    }
-
     // Read if we have more frames from flag byte
     hasMore = (buffer.readByte() & MORE_FLAG) == MORE_FLAG;
-    len--;
-
-    return ZMTPFrame.read(buffer, (int) len);
+    return len - 1;
   }
 }
