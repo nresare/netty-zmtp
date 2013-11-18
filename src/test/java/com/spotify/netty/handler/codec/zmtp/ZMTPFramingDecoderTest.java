@@ -128,7 +128,7 @@ public class ZMTPFramingDecoderTest {
 
 
   /**
-   * The ZMTP/1.0 spec states that "An FOO greeting consists of a unique string of 1
+   * The ZMTP/1.0 spec states that "An identity greeting consists of a unique string of 1
    * to 255 octets". Let's make sure we don't accept longer identities.
    * @throws Exception
    */
