@@ -65,12 +65,25 @@ public class ZMTPUtils {
       out.writeByte((byte) size);
     } else {
       out.writeByte(0xFF);
+      writeLong(out, size);
+    }
+  }
 
-      if (out.order() == BIG_ENDIAN) {
-        out.writeLong(size);
-      } else {
-        out.writeLong(swapLong(size));
-      }
+  static void encodeZMTP2FrameHeader(final long size, final byte flags, final ChannelBuffer out) {
+    if (size < 256) {
+      out.writeByte(flags);
+      out.writeByte((byte)size);
+    } else {
+      out.writeByte(flags | 0x02);
+      writeLong(out, size);
+    }
+  }
+
+   static void writeLong(final ChannelBuffer buffer, final long value) {
+    if (buffer.order() == BIG_ENDIAN) {
+      buffer.writeLong(value);
+    } else {
+      buffer.writeLong(swapLong(value));
     }
   }
 
@@ -100,9 +113,13 @@ public class ZMTPUtils {
    * @param more   True to write a more flag, false to write a final flag.
    */
   public static void writeFrame(final ZMTPFrame frame, final ChannelBuffer buffer,
-                                final boolean more) {
-    encodeLength(frame.size() + 1, buffer);
-    buffer.writeByte(more ? MORE_FLAG : FINAL_FLAG);
+                                final boolean more, final int version) {
+    if (version == 1) {
+      encodeLength(frame.size() + 1, buffer);
+      buffer.writeByte(more ? MORE_FLAG : FINAL_FLAG);
+    } else { // version == 2
+      encodeZMTP2FrameHeader(frame.size(), more ? MORE_FLAG : FINAL_FLAG, buffer);
+    }
     if (frame.hasData()) {
       buffer.writeBytes(frame.getData());
     }
@@ -117,7 +134,7 @@ public class ZMTPUtils {
    */
   @SuppressWarnings("ForLoopReplaceableByForEach")
   public static void writeMessage(final ZMTPMessage message, final ChannelBuffer buffer,
-                                  final boolean enveloped) {
+                                  final boolean enveloped, int version) {
 
     // Write envelope
     if (enveloped) {
@@ -128,18 +145,18 @@ public class ZMTPUtils {
 
       final List<ZMTPFrame> envelope = message.getEnvelope();
       for (int i = 0; i < envelope.size(); i++) {
-        writeFrame(envelope.get(i), buffer, true);
+        writeFrame(envelope.get(i), buffer, true, version);
       }
 
       // Write the delimiter
-      writeFrame(DELIMITER, buffer, true);
+      writeFrame(DELIMITER, buffer, true, version);
     }
 
     final List<ZMTPFrame> content = message.getContent();
     final int n = content.size();
     final int lastFrame = n - 1;
     for (int i = 0; i < n; i++) {
-      writeFrame(content.get(i), buffer, i < lastFrame);
+      writeFrame(content.get(i), buffer, i < lastFrame, version);
     }
   }
 
@@ -149,11 +166,19 @@ public class ZMTPUtils {
    * @param frame The frame.
    * @return Bytes needed.
    */
-  public static int frameSize(final ZMTPFrame frame) {
-    if (frame.size() + 1 < 255) {
-      return 1 + 1 + frame.size();
-    } else {
-      return 1 + 8 + 1 + frame.size();
+  public static int frameSize(final ZMTPFrame frame, int version) {
+    if (version == 1) {
+      if (frame.size() + 1 < 255) {
+        return 1 + 1 + frame.size();
+      } else {
+        return 1 + 8 + 1 + frame.size();
+      }
+    } else { // version 2
+      if (frame.size() < 256) {
+        return 1 + 1 + frame.size();
+      } else {
+        return 1 + 8 + frame.size();
+      }
     }
   }
 
@@ -165,22 +190,22 @@ public class ZMTPUtils {
    * @return The number of bytes needed.
    */
   @SuppressWarnings("ForLoopReplaceableByForEach")
-  public static int messageSize(final ZMTPMessage message, final boolean enveloped) {
+  public static int messageSize(final ZMTPMessage message, final boolean enveloped, int version) {
     int size = 0;
 
     if (enveloped) {
 
       final List<ZMTPFrame> envelope = message.getEnvelope();
       for (int i = 0; i < envelope.size(); i++) {
-        size += frameSize(envelope.get(i));
+        size += frameSize(envelope.get(i), version);
       }
-      size += frameSize(DELIMITER);
+      size += frameSize(DELIMITER, version);
     }
 
     final List<ZMTPFrame> content = message.getContent();
     final int n = content.size();
     for (int i = 0; i < n; i++) {
-      size += frameSize(content.get(i));
+      size += frameSize(content.get(i), version);
     }
 
     return size;
@@ -210,4 +235,5 @@ public class ZMTPUtils {
     }
     return sb.toString();
   }
+
 }
