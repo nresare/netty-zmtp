@@ -18,6 +18,8 @@ package com.spotify.netty.handler.codec.zmtp;
 import org.jboss.netty.buffer.ChannelBuffer;
 import org.jboss.netty.channel.*;
 import org.jboss.netty.handler.codec.frame.FrameDecoder;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Netty FrameDecoder for zmtp protocol
@@ -25,6 +27,8 @@ import org.jboss.netty.handler.codec.frame.FrameDecoder;
  * Decodes ZMTP frames into a ZMTPMessage - will return a ZMTPMessage as a message event
  */
 public class ZMTPFramingDecoder extends FrameDecoder implements Handshake.HandshakeListener {
+
+  private static final Logger log = LoggerFactory.getLogger(ZMTPFramingDecoder.class);
 
   private ZMTPMessageParser parser;
   private final ZMTPSession session;
@@ -112,6 +116,8 @@ public class ZMTPFramingDecoder extends FrameDecoder implements Handshake.Handsh
    * @param remoteIdentity a byte array containing the remote identity.
    */
   public void handshakeDone(int protocolVersion, byte[] remoteIdentity) {
+    log.debug("Set up connection with version {} and remote identity {}", protocolVersion,
+              remoteIdentity);
     this.session.setRemoteIdentity(remoteIdentity);
     this.session.setProtocolVersion(protocolVersion);
     this.parser = new ZMTPMessageParser(session.isEnveloped(), protocolVersion);
