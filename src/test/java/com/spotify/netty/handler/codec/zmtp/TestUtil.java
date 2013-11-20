@@ -34,17 +34,42 @@ class TestUtil {
    * @param actual the ChannelBuffer you actually got
    */
   public static void cmp(ChannelBuffer expected, ChannelBuffer actual) {
-    if (expected.readableBytes() != actual.readableBytes()) {
-      Assert.fail(String.format("Expected same number of readable bytes in buffers (%d != %d)",
-          expected.readableBytes(), actual.readableBytes()));
+    int expectedPos = expected.readerIndex();
+    int actualPos = actual.readerIndex();
+    int expectedReadableCount = expected.readableBytes();
+    int actualReadableCount = actual.readableBytes();
+    if (expectedReadableCount != actualReadableCount) {
+      Assert.fail(String.format("Expected same number of readable bytes in buffers (%s != %s)",
+          printBytes(expected.array(), expectedPos, expectedReadableCount),
+          printBytes(actual.array(), actualPos, actualReadableCount)));
     }
     final int readableBytes = expected.readableBytes();
     for (int i = 0; i < readableBytes; i++) {
       byte lb = expected.readByte();
       byte rb = actual.readByte();
       if (lb != rb) {
-        Assert.fail(String.format("Pos %d: (0x%02x != 0x%02x)", i, lb, rb));
+        Assert.fail(String.format("Pos %d: (%s != %s)", i,
+            printBytes(expected.array(), expectedPos, expectedReadableCount),
+            printBytes(actual.array(), actualPos, actualReadableCount)));
       }
     }
   }
+
+  /**
+   * Returns a clone of a ChannelBuffer.
+   * @param buf the ChannelBuffer to clone
+   * @return a clone.
+   */
+  public static ChannelBuffer clone(ChannelBuffer buf) {
+    return ChannelBuffers.wrappedBuffer(buf.array());
+  }
+
+  public static String printBytes(byte[] buffer, int start, int length) {
+    StringBuilder sb = new StringBuilder(length - start);
+    for (int i = start; i < start + length; i++) {
+      sb.append(String.format("%%%02x", buffer[i]));
+    }
+    return sb.toString();
+  }
+
 }
