@@ -64,6 +64,14 @@ class TestUtil {
     return ChannelBuffers.wrappedBuffer(buf.array());
   }
 
+  /*
+   * Useful for debugging stuff.
+
+  public static String print(ChannelBuffer buf) {
+    return printBytes(buf.array(), buf.readerIndex(), buf.readableBytes());
+  }
+  */
+
   public static String printBytes(byte[] buffer, int start, int length) {
     StringBuilder sb = new StringBuilder(length - start);
     for (int i = start; i < start + length; i++) {
