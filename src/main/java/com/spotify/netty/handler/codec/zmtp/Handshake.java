@@ -90,11 +90,7 @@ class Handshake {
         // with the compatibility signature it makes for a valid ZMTP/1.0 greeting.
         return ChannelBuffers.wrappedBuffer(localIdentity);
       } else { // version == 2
-        if (buffer.readableBytes() > 0) {
-          done(2, parseZMTP2Greeting(buffer, false));
-        } else {
-          splitHandshake = true;
-        }
+        splitHandshake = true;
         return makeZMTP2Greeting(false);
       }
     } else { // mode == ZMTP_20

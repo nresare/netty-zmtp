@@ -61,9 +61,10 @@ public class ZMTPFramingDecoder extends FrameDecoder implements Handshake.Handsh
     if (parser == null) {
       try {
         buffer.markReaderIndex();
-        final ChannelBuffer toSend = handshake.inputOutput(buffer);
-        if (toSend != null) {
+        ChannelBuffer toSend = handshake.inputOutput(buffer);
+        while (toSend != null) {
           channel.write(toSend);
+          toSend = handshake.inputOutput(buffer);
         }
       } catch (IndexOutOfBoundsException e) {
         buffer.resetReaderIndex();
