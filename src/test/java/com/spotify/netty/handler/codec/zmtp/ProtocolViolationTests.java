@@ -78,13 +78,10 @@ public class ProtocolViolationTests {
       );
 
       public ChannelPipeline getPipeline() throws Exception {
-        final ZMTPSession session =
-            new ZMTPSession(ZMTPConnectionType.Addressed, identity.getBytes());
 
         return Channels.pipeline(
             new ExecutionHandler(executor),
-            new ZMTPFramingDecoder(session),
-            new ZMTPFramingEncoder(session),
+            new ZMTPCodec(ZMTPMode.ZMTP_10, identity.getBytes(), ZMTPSocketType.PUB),
             new SimpleChannelUpstreamHandler() {
 
               @Override

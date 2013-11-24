@@ -62,9 +62,8 @@ public abstract class ZMTPTestConnector {
     // Set up the pipeline factory.
     bootstrap.setPipelineFactory(new ChannelPipelineFactory() {
       public ChannelPipeline getPipeline() throws Exception {
-        final ZMTPSession session = new ZMTPSession(ZMTPConnectionType.Addressed);
         return Channels.pipeline(
-            new ZMTPFramingDecoder(session),
+            new ZMTPCodec(ZMTPMode.ZMTP_10, null, ZMTPSocketType.PUB),
             new OneToOneDecoder() {
               @Override
               protected Object decode(final ChannelHandlerContext ctx, final Channel channel,

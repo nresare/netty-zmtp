@@ -21,10 +21,8 @@ public class ZMTPFramingEncoderTest {
 
   @Test
   public void testEncodeZMTP1() throws Exception {
-    ZMTPSession s = new ZMTPSession(ZMTPConnectionType.Addressed);
-    s.setProtocolVersion(1);
 
-    ZMTPFramingEncoder enc = new ZMTPFramingEncoder(s);
+    ZMTPFramingEncoder enc = new ZMTPFramingEncoder(1, true);
 
     ZMTPMessage message = new ZMTPMessage(
         asList(ZMTPFrame.create("id0"), ZMTPFrame.create("id1")),
@@ -36,14 +34,12 @@ public class ZMTPFramingEncoderTest {
 
   @Test
   public void testEncodeZMTP2() throws Exception {
-    ZMTPSession s = new ZMTPSession(ZMTPConnectionType.Addressed);
-    s.setProtocolVersion(2);
 
     ZMTPMessage message = new ZMTPMessage(
         asList(ZMTPFrame.create("id0"), ZMTPFrame.create("id1")),
         asList(ZMTPFrame.create("f0")));
 
-    ZMTPFramingEncoder enc = new ZMTPFramingEncoder(s);
+    ZMTPFramingEncoder enc = new ZMTPFramingEncoder(1, true);
 
     ChannelBuffer buf = (ChannelBuffer)enc.encode(null, null, message);
     cmp(buf, 1, 3, 0x69, 0x64, 0x30, 1, 3, 0x69, 0x64, 0x31, 1, 0, 0, 2, 0x66, 0x30);
@@ -58,9 +54,7 @@ public class ZMTPFramingEncoderTest {
     buf.writeBytes(bytes(1, 3, 0x69, 0x64, 0x30, 1, 0, 2, 0, 0, 0, 0, 0, 0, 0x01, 0xf4));
     buf.writeBytes(LARGE_FILL);
 
-    ZMTPSession s = new ZMTPSession(ZMTPConnectionType.Addressed);
-    s.setProtocolVersion(2);
-    ZMTPFramingEncoder enc = new ZMTPFramingEncoder(s);
+    ZMTPFramingEncoder enc = new ZMTPFramingEncoder(1, true);
 
     cmp(buf, (ChannelBuffer)enc.encode(null, null, message));
 
