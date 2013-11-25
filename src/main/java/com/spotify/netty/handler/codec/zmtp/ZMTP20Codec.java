@@ -4,55 +4,39 @@ import org.jboss.netty.buffer.ChannelBuffer;
 import org.jboss.netty.buffer.ChannelBuffers;
 
 /**
- * Implements the ZMTP/2.0 handshake protocol.
+ * A ZMTP20Codec instance is a ChannelUpstreamHandler that, when placed in a ChannelPipeline,
+ * will perform a ZMTP handshake with the connected peer and replace itself with the proper
+ * pipeline components to encode and decode ZMTP frames.
  */
-class Handshake20 extends Handshake {
-  private final byte[] localIdentity;
+public class ZMTP20Codec extends CodecBase {
+
   private final ZMTPSocketType type;
   private final boolean interop;
   private boolean splitHandshake;
 
   /**
-   * Construct a Handshake with the specified mode and associated session. The session is used
-   * for the local identity needed for the greeting part of the handshake process and to store the
-   * identity of the remote peer. mode is used  to indicate the protocol version behaviour of this
-   * Handshake instance.
-   *
-   * @param type the type of this socket
+   * Construct a ZMTP20Codec with the specified mode, localIdentity and socket type
+   * @param localIdentity the local identity of this peer, or null if this is an anonymous peer
+   * @param type the socket type of this peer
+   * @param interop whether this socket should implement the ZMTP/1.0 interoperability handshake
    */
-  public Handshake20(ZMTPSocketType type, byte[] localIdentity, boolean interop) {
-    this.splitHandshake = false;
+  public ZMTP20Codec(byte[] localIdentity, ZMTPSocketType type, boolean interop) {
+    super(localIdentity);
     this.interop = interop;
     this.type = type;
-    this.localIdentity = localIdentity != null ? localIdentity : new byte[0];
-
   }
 
-  /**
-   * Provides a ChannelBuffer to be sent to the remote peer directly after a socket connection
-   * is established.
-   *
-   * @return the ChannelBuffer to send.
-   */
   public ChannelBuffer onConnect() {
     if (interop) {
       return makeZMTP2CompatSignature();
-    } else { // mode == ZMTPMode.ZMTP_20
+    } else {
       return makeZMTP2Greeting(true);
     }
   }
 
-  /**
-   * The ZMTP handshake may need more than one round trip to the peer. This method gets called
-   * when a new buffer is received and is used to move the handshake process forward.
-   *
-   * @param buffer contains the data received from the peer
-   * @return a buffer to send to the peer if any, else null.
-   * @throws IndexOutOfBoundsException if the input is fragmented, else
-   */
-  public ChannelBuffer inputOutput(final ChannelBuffer buffer)
-      throws IndexOutOfBoundsException {
 
+
+  public ChannelBuffer inputOutput(final ChannelBuffer buffer) {
     if (splitHandshake) {
       done(2, parseZMTP2Greeting(buffer, false));
       return null;
@@ -63,7 +47,7 @@ class Handshake20 extends Handshake {
       int version = detectProtocolVersion(buffer);
       if (version == 1) {
         buffer.resetReaderIndex();
-        done(version, Handshake10.readZMTP1RemoteIdentity(buffer));
+        done(version, ZMTP10Codec.readZMTP1RemoteIdentity(buffer));
         // when a ZMTP/1.0 peer is detected, just send the identity bytes. Together
         // with the compatibility signature it makes for a valid ZMTP/1.0 greeting.
         return ChannelBuffers.wrappedBuffer(localIdentity);
@@ -77,30 +61,11 @@ class Handshake20 extends Handshake {
     return null;
   }
 
+
   private void done(int version, byte[] remoteIdentity) {
     if (listener != null) {
       listener.handshakeDone(version, remoteIdentity);
     }
-  }
-
-  static byte[] parseZMTP2Greeting(ChannelBuffer buffer, boolean expectSignature) {
-    if (expectSignature) {
-      if (buffer.readByte() != (byte)0xff) {
-        throw new ZMTPException("Illegal ZMTP/2.0 greeting, first octet not 0xff");
-      }
-      buffer.skipBytes(9);
-    }
-    // ignoring version number and socket type for now
-    buffer.skipBytes(2);
-    int val = buffer.readByte();
-    if (val != 0x00) {
-      String s = String.format("Malfromed greeting. Byte 13 expected to be 0x00, was: 0x%02x", val);
-      throw new ZMTPException(s);
-    }
-    int len = buffer.readByte();
-    final byte[] identity = new byte[len];
-    buffer.readBytes(identity);
-    return identity;
   }
 
   /**
@@ -159,6 +124,26 @@ class Handshake20 extends Handshake {
     ZMTPUtils.encodeLength(localIdentity.length + 1, out, true);
     out.writeByte(0x7f);
     return out;
+  }
+
+  static byte[] parseZMTP2Greeting(ChannelBuffer buffer, boolean expectSignature) {
+    if (expectSignature) {
+      if (buffer.readByte() != (byte)0xff) {
+        throw new ZMTPException("Illegal ZMTP/2.0 greeting, first octet not 0xff");
+      }
+      buffer.skipBytes(9);
+    }
+    // ignoring version number and socket type for now
+    buffer.skipBytes(2);
+    int val = buffer.readByte();
+    if (val != 0x00) {
+      String s = String.format("Malfromed greeting. Byte 13 expected to be 0x00, was: 0x%02x", val);
+      throw new ZMTPException(s);
+    }
+    int len = buffer.readByte();
+    final byte[] identity = new byte[len];
+    buffer.readBytes(identity);
+    return identity;
   }
 
 }

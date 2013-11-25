@@ -15,7 +15,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 
 /**
- * Tests Handshake
+ * Tests the handshake protocol
  */
 public class HandshakeTest {
   byte[] FOO = "foo".getBytes();
@@ -30,29 +30,29 @@ public class HandshakeTest {
 
   @Test
   public void testIsDone() {
-    Handshake h = new Handshake10(FOO);
+    ZMTP10Codec h = new ZMTP10Codec(FOO);
     h.setListener(handshakeListener);
     verifyNoMoreInteractions(handshakeListener);
   }
 
   @Test
   public void testOnConnect() {
-    Handshake h = new Handshake10(FOO);
+    CodecBase h = new ZMTP10Codec(FOO);
     cmp(h.onConnect(), 0x04, 0x00, 0x66, 0x6f, 0x6f);
 
-    h = new Handshake10(new byte[0]);
+    h = new ZMTP10Codec(new byte[0]);
     cmp(h.onConnect(), 0x01, 0x00);
 
-    h = new Handshake20(ZMTPSocketType.SUB, FOO, true);
+    h = new ZMTP20Codec(FOO, ZMTPSocketType.SUB, true);
     cmp(h.onConnect(), 0xff, 0, 0, 0, 0, 0, 0, 0, 4, 0x7f);
 
-    h = new Handshake20(ZMTPSocketType.REQ, FOO, false);
+    h = new ZMTP20Codec(FOO, ZMTPSocketType.REQ, false);
     cmp(h.onConnect(), 0xff, 0, 0, 0, 0, 0, 0, 0, 0, 0x7f, 0x01, 0x03, 0x00, 3, 0x66, 0x6f, 0x6f);
   }
 
   @Test
   public void test1to1Handshake() {
-    Handshake h = new Handshake10(FOO);
+    ZMTP10Codec h = new ZMTP10Codec(FOO);
     h.setListener(handshakeListener);
     cmp(h.onConnect(), 0x04, 0x00, 0x66, 0x6f, 0x6f);
     Assert.assertNull(h.inputOutput(buf(0x04, 0x00, 0x62, 0x61, 0x72)));
@@ -61,7 +61,7 @@ public class HandshakeTest {
 
   @Test
   public void test2InteropTo1Handshake() {
-    Handshake h = new Handshake20(ZMTPSocketType.PUB, FOO, true);
+    ZMTP20Codec h = new ZMTP20Codec(FOO, ZMTPSocketType.PUB, true);
     h.setListener(handshakeListener);
     cmp(h.onConnect(), 0xff, 0, 0, 0, 0, 0, 0, 0, 0x04, 0x7f);
     cmp(h.inputOutput(buf(0x04, 0x00, 0x62, 0x61, 0x72)), 0x66, 0x6f, 0x6f);
@@ -70,7 +70,7 @@ public class HandshakeTest {
 
   @Test
   public void test2InteropTo2InteropHandshake() {
-    Handshake h = new Handshake20(ZMTPSocketType.PUB, FOO, true);
+    ZMTP20Codec h = new ZMTP20Codec(FOO, ZMTPSocketType.PUB, true);
     h.setListener(handshakeListener);
     cmp(h.onConnect(), 0xff, 0, 0, 0, 0, 0, 0, 0, 0x04, 0x7f);
     cmp(h.inputOutput(buf(0xff, 0, 0, 0, 0, 0, 0, 0, 0x04, 0x7f)),
@@ -81,7 +81,7 @@ public class HandshakeTest {
 
   @Test
   public void test2InteropTo2Handshake() {
-    Handshake h = new Handshake20(ZMTPSocketType.PUB, FOO, true);
+    ZMTP20Codec h = new ZMTP20Codec(FOO, ZMTPSocketType.PUB, true);
     h.setListener(handshakeListener);
     cmp(h.onConnect(), 0xff, 0, 0, 0, 0, 0, 0, 0, 0x04, 0x7f);
     ChannelBuffer cb = buf(
@@ -94,7 +94,7 @@ public class HandshakeTest {
 
   @Test
   public void test2To2InteropHandshake() {
-    Handshake h = new Handshake20(ZMTPSocketType.PUB, FOO, false);
+    ZMTP20Codec h = new ZMTP20Codec(FOO, ZMTPSocketType.PUB, false);
     h.setListener(handshakeListener);
     cmp(h.onConnect(), 0xff, 0, 0, 0, 0, 0, 0, 0, 0, 0x7f, 0x1, 0x2, 0, 0x3, 0x66, 0x6f, 0x6f);
 
@@ -111,7 +111,7 @@ public class HandshakeTest {
 
   @Test
   public void test2To2Handshake() {
-    Handshake h = new Handshake20(ZMTPSocketType.PUB, FOO, false);
+    ZMTP20Codec h = new ZMTP20Codec(FOO, ZMTPSocketType.PUB, false);
     h.setListener(handshakeListener);
     cmp(h.onConnect(), 0xff, 0, 0, 0, 0, 0, 0, 0, 0, 0x7f, 0x1, 0x2, 0, 0x3, 0x66, 0x6f, 0x6f);
     Assert.assertNull(h.inputOutput(buf(
@@ -121,7 +121,7 @@ public class HandshakeTest {
 
   @Test
   public void test2To1Handshake() {
-    Handshake h = new Handshake20(ZMTPSocketType.PUB, FOO, false);
+    ZMTP20Codec h = new ZMTP20Codec(FOO, ZMTPSocketType.PUB, false);
     cmp(h.onConnect(), 0xff, 0, 0, 0, 0, 0, 0, 0, 0, 0x7f, 0x1, 0x2, 0, 0x3, 0x66, 0x6f, 0x6f);
     try {
       Assert.assertNull(h.inputOutput(buf(0x04, 0, 0x62, 0x61, 0x72)));
@@ -133,7 +133,7 @@ public class HandshakeTest {
 
   @Test
   public void test2To2CompatTruncated() {
-    Handshake h = new Handshake20(ZMTPSocketType.PUB, "identity".getBytes(), true);
+    ZMTP20Codec h = new ZMTP20Codec("identity".getBytes(), ZMTPSocketType.PUB, true);
     cmp(h.onConnect(), 0xff, 0, 0, 0, 0, 0, 0, 0, 9, 0x7f);
     cmp(h.inputOutput(buf(0xff, 0, 0, 0, 0, 0, 0, 0, 1, 0x7f, 1, 5)),
         1, 2, 0, 8, 0x69, 0x64, 0x65, 0x6e, 0x74, 0x69, 0x74, 0x79);
@@ -142,16 +142,16 @@ public class HandshakeTest {
   @Test
   public void testParseZMTP2Greeting() {
     ChannelBuffer b = buf(0xff, 0, 0, 0, 0, 0, 0, 0, 0, 0x7f, 0x01, 0x02, 0x00, 0x01, 0x61);
-    Assert.assertArrayEquals("a".getBytes(), Handshake20.parseZMTP2Greeting(b, true));
+    Assert.assertArrayEquals("a".getBytes(), ZMTP20Codec.parseZMTP2Greeting(b, true));
   }
 
   @Test
   public void testReadZMTP1RemoteIdentity() {
-    byte[] bs = Handshake10.readZMTP1RemoteIdentity(buf(0x04, 0x00, 0x62, 0x61, 0x72));
+    byte[] bs = ZMTP10Codec.readZMTP1RemoteIdentity(buf(0x04, 0x00, 0x62, 0x61, 0x72));
     Assert.assertArrayEquals(BAR, bs);
 
     // anonymous handshake
-    bs = Handshake10.readZMTP1RemoteIdentity(buf(0x01, 0x00));
+    bs = ZMTP10Codec.readZMTP1RemoteIdentity(buf(0x01, 0x00));
     Assert.assertNull(bs);
 
   }
@@ -164,22 +164,22 @@ public class HandshakeTest {
   @Test
   public void testDetectProtocolVersion() {
     try {
-      Handshake20.detectProtocolVersion(ChannelBuffers.wrappedBuffer(new byte[0]));
+      ZMTP20Codec.detectProtocolVersion(ChannelBuffers.wrappedBuffer(new byte[0]));
       Assert.fail("Should have thown IndexOutOfBoundsException");
     } catch (IndexOutOfBoundsException e) {
       // ignore
     }
     try {
-      Handshake20.detectProtocolVersion(buf(0xff, 0, 0, 0));
+      ZMTP20Codec.detectProtocolVersion(buf(0xff, 0, 0, 0));
       Assert.fail("Should have thown IndexOutOfBoundsException");
     } catch (IndexOutOfBoundsException e) {
       // ignore
     }
 
-    Assert.assertEquals(1, Handshake20.detectProtocolVersion(buf(0x07)));
-    Assert.assertEquals(1, Handshake20.detectProtocolVersion(buf(0xff, 0, 0, 0, 0, 0, 0, 0, 1, 0)));
+    Assert.assertEquals(1, ZMTP20Codec.detectProtocolVersion(buf(0x07)));
+    Assert.assertEquals(1, ZMTP20Codec.detectProtocolVersion(buf(0xff, 0, 0, 0, 0, 0, 0, 0, 1, 0)));
 
-    Assert.assertEquals(2, Handshake20.detectProtocolVersion(buf(0xff, 0, 0, 0, 0, 0, 0, 0, 1, 1)));
+    Assert.assertEquals(2, ZMTP20Codec.detectProtocolVersion(buf(0xff, 0, 0, 0, 0, 0, 0, 0, 1, 1)));
 
   }
 
@@ -187,7 +187,7 @@ public class HandshakeTest {
   public void testParseZMTP2GreetingMalformed() {
     try {
       ChannelBuffer b = buf(0xff, 0, 0, 0, 0, 0, 0, 0, 0, 0x7f, 0x01, 0x02, 0xf0, 0x01, 0x61);
-      Handshake20.parseZMTP2Greeting(b, true);
+      ZMTP20Codec.parseZMTP2Greeting(b, true);
       Assert.fail("13th byte is not 0x00, should throw exception");
     } catch (ZMTPException e) {
       // pass
