@@ -73,6 +73,14 @@
       <version>1.0.13</version>
       <scope>test</scope>
     </dependency>
+
+    <dependency>
+      <groupId>org.jeromq</groupId>
+      <artifactId>jeromq</artifactId>
+      <version>0.2.0</version>
+      <scope>test</scope>
+    </dependency>
+
   </dependencies>
   <build>
     <plugins>
