@@ -63,7 +63,7 @@ public abstract class ZMTPTestConnector {
     bootstrap.setPipelineFactory(new ChannelPipelineFactory() {
       public ChannelPipeline getPipeline() throws Exception {
         return Channels.pipeline(
-            new ZMTP20Codec(null, ZMTPSocketType.PUB, false),
+            new ZMTP10Codec("client".getBytes()),
             new OneToOneDecoder() {
               @Override
               protected Object decode(final ChannelHandlerContext ctx, final Channel channel,

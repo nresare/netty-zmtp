@@ -39,7 +39,7 @@ public class ZMTPFramingEncoderTest {
         asList(ZMTPFrame.create("id0"), ZMTPFrame.create("id1")),
         asList(ZMTPFrame.create("f0")));
 
-    ZMTPFramingEncoder enc = new ZMTPFramingEncoder(1, true);
+    ZMTPFramingEncoder enc = new ZMTPFramingEncoder(2, true);
 
     ChannelBuffer buf = (ChannelBuffer)enc.encode(null, null, message);
     cmp(buf, 1, 3, 0x69, 0x64, 0x30, 1, 3, 0x69, 0x64, 0x31, 1, 0, 0, 2, 0x66, 0x30);
@@ -54,7 +54,7 @@ public class ZMTPFramingEncoderTest {
     buf.writeBytes(bytes(1, 3, 0x69, 0x64, 0x30, 1, 0, 2, 0, 0, 0, 0, 0, 0, 0x01, 0xf4));
     buf.writeBytes(LARGE_FILL);
 
-    ZMTPFramingEncoder enc = new ZMTPFramingEncoder(1, true);
+    ZMTPFramingEncoder enc = new ZMTPFramingEncoder(2, true);
 
     cmp(buf, (ChannelBuffer)enc.encode(null, null, message));
 

@@ -55,6 +55,8 @@ abstract class CodecBase extends ReplayingDecoder<VoidEnum>  {
       ctx.getChannel().write(toSend);
       toSend = inputOutput(buffer);
     }
+    // This follows the pattern for dynamic pipelines documented in
+    // http://netty.io/3.6/api/org/jboss/netty/handler/codec/replay/ReplayingDecoder.html
     if (buffer.readable()) {
       return buffer.readBytes(super.actualReadableBytes());
     }
