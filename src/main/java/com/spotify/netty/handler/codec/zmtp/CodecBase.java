@@ -55,6 +55,9 @@ abstract class CodecBase extends ReplayingDecoder<VoidEnum>  {
       ctx.getChannel().write(toSend);
       toSend = inputOutput(buffer);
     }
+    if (buffer.readable()) {
+      return buffer.readBytes(super.actualReadableBytes());
+    }
     return null;
   }
 
@@ -81,7 +84,7 @@ abstract class CodecBase extends ReplayingDecoder<VoidEnum>  {
       if (after != null) {
         after.add(new NameToHandler(n, pipeline.remove(n)));
       }
-      if (pipeline.get(n) == this) {
+      if (after == null && pipeline.get(n) == this) {
         after = new ArrayList<NameToHandler>();
       }
     }
