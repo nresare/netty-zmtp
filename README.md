@@ -1,6 +1,8 @@
 This is a ZeroMQ codec for Netty that aims to implement ZMTP, the ZeroMQ Message Transport Protocol
 versions 1.0 and 2.0 as specified in http://rfc.zeromq.org/spec:13 and http://rfc.zeromq.org/spec:15.
 
+This project is hosted on https://github.com/spotify/netty-zmtp/
+
 At Spotify we use ZeroMQ for a lot of the internal communication between services in the backend.
 As we implement more services on top of the JVM we felt the need for more control over the state
 of TCP connections, routing, message queue management, etc as well as getting better performance
@@ -24,4 +26,8 @@ will turn incoming buffers into  `ZMTPIncomingMessage` instances up the pipeline
 There is an open Google group for general development and usage discussion available at
 https://groups.google.com/group/netty-zmtp
 
-We use the github issue tracker at
+We use the github issue tracker at https://github.com/spotify/netty-zmtp/issues
+
+## License
+
+This software is licensed using the Apache 2.0 license. Details in the file LICENSE
