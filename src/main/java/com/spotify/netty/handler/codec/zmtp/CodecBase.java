@@ -8,6 +8,9 @@ import org.jboss.netty.handler.codec.replay.VoidEnum;
 import java.util.ArrayList;
 import java.util.List;
 
+/**
+ * An abstract base class for common functionality to the ZMTP codecs.
+ */
 abstract class CodecBase extends ReplayingDecoder<VoidEnum>  {
 
   private final ZMTPSession session;
@@ -18,7 +21,8 @@ abstract class CodecBase extends ReplayingDecoder<VoidEnum>  {
   CodecBase(byte[] localIdentity) {
     this.localIdentity = localIdentity;
     boolean enveloped = localIdentity != null;
-    this.session = new ZMTPSession(enveloped ? ZMTPConnectionType.Addressed : ZMTPConnectionType.Broadcast);
+    this.session = new ZMTPSession(
+        enveloped ? ZMTPConnectionType.Addressed : ZMTPConnectionType.Broadcast);
     this.enveloped = enveloped;
   }
 
@@ -57,8 +61,8 @@ abstract class CodecBase extends ReplayingDecoder<VoidEnum>  {
     }
     // This follows the pattern for dynamic pipelines documented in
     // http://netty.io/3.6/api/org/jboss/netty/handler/codec/replay/ReplayingDecoder.html
-    if (buffer.readable()) {
-      return buffer.readBytes(super.actualReadableBytes());
+    if (actualReadableBytes() > 0) {
+      return buffer.readBytes(actualReadableBytes());
     }
     return null;
   }

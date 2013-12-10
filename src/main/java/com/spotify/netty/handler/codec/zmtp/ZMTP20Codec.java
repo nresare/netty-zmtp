@@ -5,7 +5,7 @@ import org.jboss.netty.buffer.ChannelBuffers;
 
 /**
  * A ZMTP20Codec instance is a ChannelUpstreamHandler that, when placed in a ChannelPipeline,
- * will perform a ZMTP handshake with the connected peer and replace itself with the proper
+ * will perform a ZMTP/2.0 handshake with the connected peer and replace itself with the proper
  * pipeline components to encode and decode ZMTP frames.
  */
 public class ZMTP20Codec extends CodecBase {
@@ -26,7 +26,7 @@ public class ZMTP20Codec extends CodecBase {
     this.type = type;
   }
 
-  public ChannelBuffer onConnect() {
+  protected ChannelBuffer onConnect() {
     if (interop) {
       return makeZMTP2CompatSignature();
     } else {
@@ -34,9 +34,7 @@ public class ZMTP20Codec extends CodecBase {
     }
   }
 
-
-
-  public ChannelBuffer inputOutput(final ChannelBuffer buffer) {
+  protected ChannelBuffer inputOutput(final ChannelBuffer buffer) {
     if (splitHandshake) {
       done(2, parseZMTP2Greeting(buffer, false));
       return null;
